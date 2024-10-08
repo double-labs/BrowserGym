@@ -20,14 +20,14 @@ IGNORED_AXTREE_PROPERTIES = (
 )
 
 
-async def generate_axt(page: playwright.sync_api.Page) -> str:
+def generate_axt(page: playwright.sync_api.Page) -> str:
     mark_frames(page)
     axt_object = extract_merged_axtree(page)
     axt = flatten_axtree_to_str(axt_object)
     return axt
 
 
-async def mark_frames(page: playwright.sync_api.Page):
+def mark_frames(page: playwright.sync_api.Page):
     """
     pre-extraction routine, marks dom elements (set bid and dynamic attributes like value & checked)
     """
@@ -42,7 +42,7 @@ async def mark_frames(page: playwright.sync_api.Page):
 
     # we can't run this loop in JS due to Same-Origin Policy
     # (can't access the content of an iframe from another one)
-    async def mark_frames_recursive(frame, frame_bid: str):
+    def mark_frames_recursive(frame, frame_bid: str):
         if not (frame_bid == "" or (frame_bid.islower() and frame_bid.isalpha())):
             print(f"Invalid frame bid: {frame_bid}. Skipping this frame.")
             return
@@ -83,7 +83,7 @@ async def mark_frames(page: playwright.sync_api.Page):
     mark_frames_recursive(page.main_frame, frame_bid="")
 
 
-async def extract_all_frame_axtrees(page: playwright.sync_api.Page):
+def extract_all_frame_axtrees(page: playwright.sync_api.Page):
     """
     Extracts the AXTree of all frames (main document and iframes) of a Playwright page using Chrome
     DevTools Protocol.
@@ -124,7 +124,7 @@ async def extract_all_frame_axtrees(page: playwright.sync_api.Page):
                 {"frameId": frame_id},
             )
             frame_axtrees[frame_id] = axtree
-        except playwright.async_api.Error:
+        except playwright.sync_api.Error:
             print(f"Failed to extract AXTree for frame {frame_id}")
 
     cdp.detach()
