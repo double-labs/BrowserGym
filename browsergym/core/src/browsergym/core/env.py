@@ -1,5 +1,6 @@
 import copy
 from browsergym.core.src.browsergym.core.axt import generate_axt
+from browsergym.core.src.browsergym.core.flag_interactable_elements import flag_interactable_elements
 import gymnasium as gym
 import logging
 import numpy as np
@@ -28,8 +29,17 @@ from .action.highlevel import HighLevelActionSet
 from .action.base import execute_python_code
 from . import _get_global_playwright
 
-
 logger = logging.getLogger(__name__)
+
+def inject_scripts(browser_context) -> None:
+    scripts_dir = Path(__file__).parent / "javascript" / "js_scripts"
+    if not scripts_dir.is_dir():
+        raise ValueError(f"Scripts directory {scripts_dir} does not exist")
+    for script_file in scripts_dir.glob("*.js"):
+        with open(script_file, "r") as file:
+            script_content = file.read()
+            browser_context.add_init_script(script_content)
+
 
 
 class BrowserEnv(gym.Env, ABC):
@@ -253,6 +263,8 @@ document.addEventListener("visibilitychange", () => {
 """
         )
 
+        inject_scripts(self.context)
+
         # create the chat
         self.chat = Chat(
             headless=self.headless,
@@ -473,10 +485,10 @@ document.addEventListener("visibilitychange", () => {
             raise RuntimeError(f"Unexpected: active page has been closed ({self.page}).")
 
     def _get_obs(self):
-
         for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
             try:
                 dom = extract_dom_snapshot(self.page)
+                flag_interactable_elements(self.page)
                 axtree = generate_axt(self.page)
                 focused_element_bid = extract_focused_element_bid(self.page)
                 extra_properties = extract_dom_extra_properties(dom)
