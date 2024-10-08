@@ -16,12 +16,10 @@ from .task import AbstractBrowserTask
 from .spaces import Unicode, AnyDict, AnyBox
 from .constants import TEXT_MAX_LENGTH, BROWSERGYM_ID_ATTRIBUTE, EXTRACT_OBS_MAX_TRIES
 from .observation import (
-    _pre_extract,
     _post_extract,
     extract_screenshot,
     extract_dom_snapshot,
     extract_dom_extra_properties,
-    extract_merged_axtree,
     extract_focused_element_bid,
     MarkingError,
 )
