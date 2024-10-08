@@ -1,6 +1,6 @@
 import copy
-from browsergym.core.src.browsergym.core.axt import generate_axt
-from browsergym.core.src.browsergym.core.flag_interactable_elements import flag_interactable_elements
+from browsergym.core.axt import generate_axt
+from browsergym.core.flag_interactable_elements import flag_interactable_elements
 import gymnasium as gym
 import logging
 import numpy as np
@@ -32,7 +32,7 @@ from . import _get_global_playwright
 logger = logging.getLogger(__name__)
 
 def inject_scripts(browser_context) -> None:
-    scripts_dir = Path(__file__).parent / "javascript" / "js_scripts"
+    scripts_dir = Path(__file__).parent / "javascript"
     if not scripts_dir.is_dir():
         raise ValueError(f"Scripts directory {scripts_dir} does not exist")
     for script_file in scripts_dir.glob("*.js"):

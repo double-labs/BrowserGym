@@ -2,6 +2,9 @@ import ast
 import pkgutil
 import re
 
+from browsergym.core.aria_parsing import AriaData
+import playwright
+
 
 
 # This entire file is shamelessly taken from browsergym source code
@@ -33,10 +36,10 @@ def mark_frames(page: playwright.sync_api.Page):
     """
     js_frame_mark_elements = pkgutil.get_data(
         __name__,
-        "js_scripts/frame-mark-elements.js",
+        "javascript/frame_mark_elements.js",
     )
     if js_frame_mark_elements is None:
-        print("Failed to load frame-mark-elements.js")
+        print("Failed to load frame_mark_elements.js")
         return
     js_frame_mark_elements = js_frame_mark_elements.decode("utf-8")
 
@@ -191,7 +194,7 @@ __BOOL_EXPR = r"([01])"
 __DATA_REGEXP = re.compile(__BID_EXPR + r"_" + r"(.*)")
 
 
-async def extract_merged_axtree(page: playwright.sync_api.Page):
+def extract_merged_axtree(page: playwright.sync_api.Page):
     """
     Extracts the merged AXTree of a Playwright page (main document and iframes AXTrees merged) using
     Chrome DevTools Protocol.
