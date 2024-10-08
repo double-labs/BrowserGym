@@ -1,4 +1,5 @@
 import copy
+from browsergym.core.src.browsergym.core.axt import generate_axt
 import gymnasium as gym
 import logging
 import numpy as np
@@ -477,11 +478,8 @@ document.addEventListener("visibilitychange", () => {
 
         for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
             try:
-                # pre-extraction, mark dom elements (set bid, set dynamic attributes like value and checked)
-                _pre_extract(self.page, self.tags_to_mark)
-
                 dom = extract_dom_snapshot(self.page)
-                axtree = extract_merged_axtree(self.page)
+                axtree = generate_axt(self.page)
                 focused_element_bid = extract_focused_element_bid(self.page)
                 extra_properties = extract_dom_extra_properties(dom)
             except (playwright.sync_api.Error, MarkingError) as e:

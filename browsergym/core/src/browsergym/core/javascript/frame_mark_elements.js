@@ -1,9 +1,25 @@
 /**
  * Go through all DOM elements in the frame (including shadowDOMs), give them unique browsergym
- * identifiers (bid), and store custom data in ARIA attributes.
+ * identifiers (bid), and store custom data in the aria-roledescription attribute.
  */
-async ([parent_bid, bid_attr_name, tags_to_mark]) => {
 
+function originalAriaTag(aria) {
+    if (!aria) {
+        return null;
+    }
+    if (!aria.startsWith("<|")) {
+        return aria;
+    }
+    const originalContentMatch = aria.match(/<\|original_aria\|>(.*?)<\|original_aria\|>/);
+    if (originalContentMatch) {
+        return originalContentMatch[1];
+    }
+    return null;
+}
+
+
+
+async function main([parent_bid, id_attr_name]) {
     // standard html tags
     // https://www.w3schools.com/tags/
     const html_tags = new Set([
@@ -40,10 +56,13 @@ async ([parent_bid, bid_attr_name, tags_to_mark]) => {
         entries => {
           entries.forEach(entry => {
             let elem = entry.target;
-            elem.setAttribute('browsergym_visibility_ratio', Math.round(entry.intersectionRatio * 100) / 100);
+            const visibility_ratio = Math.round(entry.intersectionRatio * 100) / 100;
+            elem.setAttribute('browsergym_visibility_ratio', visibility_ratio);
             if (elems_to_be_visited.has(elem)) {
                 elems_to_be_visited.delete(elem);
             }
+            const aria = elem.getAttribute("aria-roledescription");
+            elem.setAttribute("aria-roledescription", `${aria ?? ''}<|visibility|>${visibility_ratio === 0 ? 'false' : 'true'}<|visibility|>`);
           })
         },
         {
@@ -69,21 +88,10 @@ async ([parent_bid, bid_attr_name, tags_to_mark]) => {
             );
         }
         i++;
-        // decide if the current element should be marked or not
-        switch (tags_to_mark) {
-            // mark all elements
-            case "all":
-                break;
-            // mark only standard HTML tags
-            case "standard_html":
-                if (!elem.tagName || !html_tags.has(elem.tagName.toLowerCase())) {
-                    // continue the loop, i.e., move on to the next element
-                    continue;
-                }
-                break;
-            // non-recognized argument
-            default:
-                throw new Error(`Invalid value for parameter \"tags_to_mark\": ${JSON.stringify(tags_to_mark)}`);
+        // we will mark only standard HTML tags
+        if (!elem.tagName || !html_tags.has(elem.tagName.toLowerCase())) {
+            // Skipping element
+            continue;  // stop and move on to the next element
         }
         // Processing element
         // register intersection callback on element, and keep track of element for waiting later
@@ -107,12 +115,14 @@ async ([parent_bid, bid_attr_name, tags_to_mark]) => {
         // https://playwright.dev/docs/locators#locate-by-test-id
         // recover the element id if it has one already, else compute a new element id
         let elem_global_bid = null;
-        if (elem.hasAttribute(bid_attr_name)) {
-            // throw an error if the attribute is already set while this is the first visit of the page
-            if (browsergym_first_visit) {
-                throw new Error(`Attribute ${bid_attr_name} already used in element ${elem.outerHTML}`);
-            }
-            elem_global_bid = elem.getAttribute(bid_attr_name);
+        if (elem.hasAttribute(id_attr_name)) {
+            // below we used to throw an error if the attribute is already set while this is the
+            // first visit of the page - just overriding it seems safe though
+            //
+            // if (browsergym_first_visit) {
+            //     throw new Error(`Attribute ${id_attr_name} already used in element ${elem.outerHTML}`);
+            // }
+            elem_global_bid = elem.getAttribute(id_attr_name);
             // if the bid has already been encountered, then this is a duplicate and a new bid should be set
             if (all_bids.has(elem_global_bid)) {
                 console.log(`BrowserGym: duplicate bid ${elem_global_bid} detected, generating a new one`);
@@ -121,29 +131,115 @@ async ([parent_bid, bid_attr_name, tags_to_mark]) => {
         }
         if (elem_global_bid === null) {
             let elem_local_id = null;
-            // iFrames get alphabetical ids: 'a', 'b', ..., 'z', 'aA', 'aB' etc.
+            // iFrames get alphabetical ids: 'a', 'b', ..., 'z'.
+            // if more than 52 iFrames are present, raise an Error
             if (['iframe', 'frame'].includes(elem.tagName.toLowerCase())) {
                 elem_local_id = `${window.browsergym_frame_id_generator.next()}`;
+                if (elem_local_id.length > 1) {
+                    throw new Error(`More than 52? Such iFrames. BrowserGym not like.`);
+                }
             }
             // other elements get numerical ids: '0', '1', '2', ...
             else {
                 elem_local_id = `${window.browsergym_elem_counter++}`;
             }
-            if (parent_bid == "") {
+            if (parent_bid === "") {
                 elem_global_bid = `${elem_local_id}`;
             }
             else {
                 elem_global_bid = `${parent_bid}${elem_local_id}`;
             }
-            elem.setAttribute(bid_attr_name, `${elem_global_bid}`);
+            let bidToDisplay = "*";
+            if (elem.hasAttribute("data-twin-agent-element-type")) {  // Only interactable elements need a BID
+                const twinElementType = elem.getAttribute("data-twin-agent-element-type");
+
+                // Check for clickable elements
+                if (twinElementType == "clickable") {
+                    if (elem_global_bid.startsWith("clickable-element-")) {
+                        bidToDisplay = elem_global_bid;
+                    } else {
+                        bidToDisplay = `clickable-element-${elem_global_bid}`;
+                    }
+                }
+
+                // Check for typable elements
+                if (twinElementType == "typable") {
+                    if (elem_global_bid.startsWith("typable-element-")) {
+                        bidToDisplay = elem_global_bid;
+                    } else {
+                        bidToDisplay = `typable-element-${elem_global_bid}`;
+                    }
+                }
+
+                // Check for selectable elements
+                if (twinElementType == "selectable") {
+                    if (elem_global_bid.startsWith("selectable-element-")) {
+                        bidToDisplay = elem_global_bid;
+                    } else {
+                        bidToDisplay = `selectable-element-${elem_global_bid}`;
+                    }
+                }
+
+            }
+
+            // Do not erase the bid of iframes (if they match lowercase letters)
+            if (/^[a-z]+$/.test(elem_global_bid)) {
+                bidToDisplay = elem_global_bid;
+            }
+
+            elem.setAttribute(id_attr_name, `${bidToDisplay}`);
         }
         all_bids.add(elem_global_bid);
 
-        // Hack: store custom data inside ARIA attributes (will be available in DOM and AXTree)
+        // Hack: store custom data inside the aria-roledescription attribute (will be available in DOM and AXTree)
         //  - elem_global_bid: global element identifier (unique over multiple frames)
         // TODO: add more data if needed (x, y coordinates, bounding box, is_visible, is_clickable etc.)
-        push_bid_to_attribute(elem_global_bid, elem, "aria-roledescription");
-        push_bid_to_attribute(elem_global_bid, elem, "aria-description");  // fallback for generic nodes
+        const tags = [];
+        const aria = elem.getAttribute("aria-roledescription");
+
+        let originalAria = originalAriaTag(aria);
+        const ariaTag = originalAria ? `<|original_aria|>${originalAria}<|original_aria|>` : "";
+        tags.push(ariaTag);
+
+        const href = elem.getAttribute("href");
+        const hrefTag = href ? `<|href|>${href}<|href|>` : "";
+        tags.push(hrefTag);
+
+
+        let bid = "*";
+        const twinElementType = elem.getAttribute("data-twin-agent-element-type");
+        if (twinElementType) {  // Only interactable elements need a BID
+            if (twinElementType === "clickable") {
+                if (elem_global_bid.startsWith("clickable-element-")) {
+                    bid = elem_global_bid;
+                } else {
+                    bid = `clickable-element-${elem_global_bid}`;
+                }
+            }
+
+            // Check for typable elements
+            if (twinElementType === "typable") {
+                if (elem_global_bid.startsWith("typable-element-")) {
+                    bid = elem_global_bid;
+                } else {
+                    bid = `typable-element-${elem_global_bid}`;
+                }
+            }
+
+            // Check for selectable elements
+            if (twinElementType === "selectable") {
+                if (elem_global_bid.startsWith("selectable-element-")) {
+                    bid = elem_global_bid;
+                } else {
+                    bid = `selectable-element-${elem_global_bid}`;
+                }
+            }
+        }
+        const bidTag = `<|bid|>${bid}<|bid|>`;
+        tags.push(bidTag);
+
+        let joinedTags = tags.join('');
+        elem.setAttribute("aria-roledescription", joinedTags);
 
         // set-of-marks flag (He et al. 2024)
         // https://github.com/MinorJerry/WebVoyager/blob/main/utils.py
@@ -232,15 +328,6 @@ function whoCapturesCenterClick(element){
     }
 }
 
-function push_bid_to_attribute(bid, elem, attr){
-    let original_content = "";
-    if (elem.hasAttribute(attr)) {
-        original_content = elem.getAttribute(attr);
-    }
-    let new_content = `browsergym_id_${bid} ${original_content}`
-    elem.setAttribute(attr, new_content);
-}
-
 function elementFromPoint(x, y) {
     let dom = document;
     let last_elem = null;
@@ -257,20 +344,15 @@ function elementFromPoint(x, y) {
 
 // https://stackoverflow.com/questions/12504042/what-is-a-method-that-can-be-used-to-increment-letters#answer-12504061
 class IFrameIdGenerator {
-    constructor(chars = 'abcdefghijklmnopqrstuvwxyz') {
+    constructor(chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ') {
       this._chars = chars;
       this._nextId = [0];
     }
 
     next() {
       const r = [];
-      for (let i = 0; i < this._nextId.length; i++) {
-        let char = this._chars[this._nextId[i]];
-        // all but first character must be upper-cased (a, aA, bCD)
-        if (i < this._nextId.length - 1) {
-            char = char.toUpperCase();
-        }
-        r.unshift(char);
+      for (const char of this._nextId) {
+        r.unshift(this._chars[char]);
       }
       this._increment();
       return r.join('');
@@ -293,3 +375,5 @@ class IFrameIdGenerator {
       }
     }
   }
+
+window.frameMarkElements = main;
