@@ -541,7 +541,7 @@ document.addEventListener("visibilitychange", () => {
             "url": self.page.url,
             "screenshot": extract_screenshot(self.page),
             "dom_object": dom,
-            "axtree_object": axtree,
+            "axtree": axtree,
             "extra_element_properties": extra_properties,
             "focused_element_bid": focused_element_bid,
             "last_action": self.last_action,
