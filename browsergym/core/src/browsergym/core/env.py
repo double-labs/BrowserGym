@@ -487,11 +487,11 @@ document.addEventListener("visibilitychange", () => {
     def _get_obs(self):
         for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
             try:
-                dom = extract_dom_snapshot(self.page)
+                # dom = extract_dom_snapshot(self.page)
                 flag_interactable_elements(self.page)
                 axtree = generate_axt(self.page)
-                focused_element_bid = extract_focused_element_bid(self.page)
-                extra_properties = extract_dom_extra_properties(dom)
+                # focused_element_bid = extract_focused_element_bid(self.page)
+                # extra_properties = extract_dom_extra_properties(dom)
             except (playwright.sync_api.Error, MarkingError) as e:
                 err_msg = str(e)
                 # try to add robustness to async events (detached / deleted frames)
@@ -540,10 +540,11 @@ document.addEventListener("visibilitychange", () => {
             "active_page_index": np.asarray([self.context.pages.index(self.page)]),
             "url": self.page.url,
             "screenshot": extract_screenshot(self.page),
-            "dom_object": dom,
+            "dom_object": "", # We dont use it 
             "axtree": axtree,
-            "extra_element_properties": extra_properties,
-            "focused_element_bid": focused_element_bid,
+            "axtree": "axtree",
+            "extra_element_properties": "", # we dont usei t
+            "focused_element_bid": "", # we dont use it
             "last_action": self.last_action,
             "last_action_error": self.last_action_error,
             "elapsed_time": np.asarray([time.time() - self.start_time]),

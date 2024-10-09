@@ -61,8 +61,8 @@ def detect_event_listeners(page: Page):
         except Exception as e:
             print(exception=e).warning("Error processing node")
             return None
-
-    asyncio.gather(*(process_node(node_id) for node_id in node_ids["nodeIds"]))
+    for node_id in node_ids["nodeIds"]:
+        process_node(node_id)
     client.detach()
 
 
