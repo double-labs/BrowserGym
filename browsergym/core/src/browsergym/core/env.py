@@ -434,12 +434,12 @@ document.addEventListener("visibilitychange", () => {
     def _wait_dom_loaded(self):
         for page in self.context.pages:
             try:
-                page.wait_for_load_state("domcontentloaded", timeout=3000)
+                page.wait_for_load_state("networkidle", timeout=3000)
             except playwright.sync_api.Error:
                 pass
             for frame in page.frames:
                 try:
-                    frame.wait_for_load_state("domcontentloaded", timeout=3000)
+                    frame.wait_for_load_state("networkidle", timeout=3000)
                 except playwright.sync_api.Error:
                     pass
 
