@@ -2,6 +2,11 @@ import playwright.sync_api
 from typing import Literal
 
 
+def get_id_selector(action_id: str) -> str:
+    return f'[data-twin-unique-id="{action_id}"]'
+
+
+
 def get_elem_by_bid(
     page: playwright.sync_api.Page, bid: str, scroll_into_view: bool = False
 ) -> playwright.sync_api.Locator:
@@ -21,31 +26,16 @@ def get_elem_by_bid(
     """
     if not isinstance(bid, str):
         raise ValueError(f"expected a string, got {repr(bid)}")
-
-    current_frame = page
-
-    # dive into each nested frame, to the frame where the element is located
-    i = 0
-    while bid[i:] and not bid[i:].isnumeric():
-        i += 1
-        # allow multi-character frame ids such as aA, bCD etc.
-        while bid[i:] and bid[i].isalpha() and bid[i].isupper():
-            i += 1
-        frame_bid = bid[:i]  # bid of the next frame to select
-        frame_elem = current_frame.get_by_test_id(frame_bid)
-        if not frame_elem.count():
-            raise ValueError(f'Could not find element with bid "{bid}"')
-        if scroll_into_view:
-            frame_elem.scroll_into_view_if_needed(timeout=500)
-        current_frame = frame_elem.frame_locator(":scope")
-
-    # finally, we should have selected the frame where the target element is
-    elem = current_frame.get_by_test_id(bid)
-    if not elem.count():
-        raise ValueError(f'Could not find element with bid "{bid}"')
-    if scroll_into_view:
-        elem.scroll_into_view_if_needed(timeout=500)
-    return elem
+    selector = get_id_selector(bid)
+    el = page.locator(selector)
+    if el.count() > 0:
+        return el
+    iframes = page.locator("iframe").all()
+    for iframe in iframes:
+        frame = iframe.content_frame
+        frame_el = frame.locator(selector)
+        if frame_el.count() > 0:
+            return frame_el
 
 
 def highlight_by_box(
