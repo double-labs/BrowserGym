@@ -434,12 +434,14 @@ document.addEventListener("visibilitychange", () => {
     def _wait_dom_loaded(self):
         for page in self.context.pages:
             try:
+                page.wait_for_load_state("domcontentloaded", timeout=3000)
                 page.wait_for_load_state("networkidle", timeout=3000)
             except playwright.sync_api.Error:
                 pass
             for frame in page.frames:
                 try:
-                    frame.wait_for_load_state("networkidle", timeout=3000)
+                    frame.wait_for_load_state("domcontentloaded", timeout=3000)
+                    page.wait_for_load_state("networkidle", timeout=3000)
                 except playwright.sync_api.Error:
                     pass
 
@@ -540,10 +542,10 @@ document.addEventListener("visibilitychange", () => {
             "active_page_index": np.asarray([self.context.pages.index(self.page)]),
             "url": self.page.url,
             "screenshot": extract_screenshot(self.page),
-            "dom_object": dom, # We dont use it 
+            "dom_object": dom, 
             "axtree_object": axtree,
-            "extra_element_properties": "", # we dont usei t
-            "focused_element_bid": "", # we dont use it
+            "extra_element_properties": "", 
+            "focused_element_bid": "",
             "last_action": self.last_action,
             "last_action_error": self.last_action_error,
             "elapsed_time": np.asarray([time.time() - self.start_time]),
