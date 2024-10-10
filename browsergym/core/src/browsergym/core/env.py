@@ -489,10 +489,11 @@ document.addEventListener("visibilitychange", () => {
     def _get_obs(self):
         for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
             try:
+                dom = extract_dom_snapshot(self.page)
                 flag_interactable_elements(self.page)
                 axtree = generate_axt(self.page)
-                # focused_element_bid = extract_focused_element_bid(self.page)
-                # extra_properties = extract_dom_extra_properties(dom)
+                focused_element_bid = extract_focused_element_bid(self.page)
+                extra_properties = extract_dom_extra_properties(dom)
             except (playwright.sync_api.Error, MarkingError) as e:
                 err_msg = str(e)
                 # try to add robustness to async events (detached / deleted frames)
@@ -507,7 +508,7 @@ document.addEventListener("visibilitychange", () => {
                         f"An error occured while extracting the dom and axtree. Retrying ({retries_left}/{EXTRACT_OBS_MAX_TRIES} tries left).\n{repr(e)}"
                     )
                     # post-extract cleanup (ARIA attributes)
-                    # _post_extract(self.page)
+                    _post_extract(self.page)
                     time.sleep(0.5)
                     continue
                 else:
@@ -515,7 +516,7 @@ document.addEventListener("visibilitychange", () => {
             break
 
         # post-extraction cleanup of temporary info in dom
-        # _post_extract(self.page)
+        _post_extract(self.page)
 
         # use first user message as goal, if any
         # use all user images before first user message as goal images, if any
@@ -541,10 +542,10 @@ document.addEventListener("visibilitychange", () => {
             "active_page_index": np.asarray([self.context.pages.index(self.page)]),
             "url": self.page.url,
             "screenshot": extract_screenshot(self.page),
-            "dom_object": {}, 
+            "dom_object": dom, 
             "axtree_object": axtree,
-            "extra_element_properties": "", 
-            "focused_element_bid": "",
+            "extra_element_properties": extra_properties, 
+            "focused_element_bid": focused_element_bid,
             "last_action": self.last_action,
             "last_action_error": self.last_action_error,
             "elapsed_time": np.asarray([time.time() - self.start_time]),
