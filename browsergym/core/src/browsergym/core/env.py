@@ -542,7 +542,6 @@ document.addEventListener("visibilitychange", () => {
             "screenshot": extract_screenshot(self.page),
             "dom_object": "", # We dont use it 
             "axtree": axtree,
-            "axtree": "axtree",
             "extra_element_properties": "", # we dont usei t
             "focused_element_bid": "", # we dont use it
             "last_action": self.last_action,
