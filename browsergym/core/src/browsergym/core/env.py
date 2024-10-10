@@ -487,7 +487,7 @@ document.addEventListener("visibilitychange", () => {
     def _get_obs(self):
         for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
             try:
-                # dom = extract_dom_snapshot(self.page)
+                dom = extract_dom_snapshot(self.page)
                 flag_interactable_elements(self.page)
                 axtree = generate_axt(self.page)
                 # focused_element_bid = extract_focused_element_bid(self.page)
@@ -540,8 +540,8 @@ document.addEventListener("visibilitychange", () => {
             "active_page_index": np.asarray([self.context.pages.index(self.page)]),
             "url": self.page.url,
             "screenshot": extract_screenshot(self.page),
-            "dom_object": "", # We dont use it 
-            "axtree": axtree,
+            "dom_object": dom, # We dont use it 
+            "axtree_object": axtree,
             "extra_element_properties": "", # we dont usei t
             "focused_element_bid": "", # we dont use it
             "last_action": self.last_action,
