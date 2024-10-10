@@ -36,6 +36,7 @@ def get_elem_by_bid(
         frame_el = frame.locator(selector)
         if frame_el.count() > 0:
             return frame_el
+    raise ValueError(f"element with bid {bid} not found")
 
 
 def highlight_by_box(
