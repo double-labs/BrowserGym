@@ -168,6 +168,7 @@ class HighLevelActionSet(AbstractActionSet):
         self.python_includes += f"""\
 import playwright.sync_api
 from typing import Literal
+import re
 
 
 """

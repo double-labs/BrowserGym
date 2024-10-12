@@ -6,7 +6,6 @@ def get_id_selector(action_id: str) -> str:
     return f'[data-twin-unique-id="{action_id}"]'
 
 
-
 def get_elem_by_bid(
     page: playwright.sync_api.Page, bid: str, scroll_into_view: bool = False
 ) -> playwright.sync_api.Locator:
@@ -26,17 +25,24 @@ def get_elem_by_bid(
     """
     if not isinstance(bid, str):
         raise ValueError(f"expected a string, got {repr(bid)}")
+    current_frame = page
+    i = 0
+    number = re.search(r"\w+-\w+-(\w+)", bid).group(1)
+    while number[i:] and not number[i:].isnumeric():
+        i += 1
+        # allow multi-character frame ids such as aA, bCD etc.
+        while number[i:] and number[i].isalpha() and number[i].isupper():
+            i += 1
+        frame_bid = number[:i]  # bid of the next frame to select
+        frame_elem = page.locator(get_id_selector(frame_bid))
+        if not frame_elem.count():
+            raise ValueError(f'Could not find element with bid "{id}"')
+        current_frame = frame_elem.frame_locator(":scope")
     selector = get_id_selector(bid)
-    el = page.locator(selector)
-    if el.count() > 0:
+    el = current_frame.locator(selector)
+    if el.count() > 0:  # type: ignore
         return el
-    iframes = page.locator("iframe").all()
-    for iframe in iframes:
-        frame = iframe.content_frame
-        frame_el = frame.locator(selector)
-        if frame_el.count() > 0:
-            return frame_el
-    raise ValueError(f"element with bid {bid} not found")
+    raise ValueError(f"Element not found: {selector}")
 
 
 def highlight_by_box(
