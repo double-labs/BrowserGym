@@ -211,49 +211,66 @@ class HtmlProcessor {
     return elementId;
   }
 
+  
+  static findParentIframe(shadowHosts, selector) {
+      const parentIframe = document.body.querySelector(`iframe[data-twin-unique-id="${selector}"]`);
+      if (parentIframe) {
+          return parentIframe;
+      }
+      for (const host of shadowHosts) {
+        if (host.shadowRoot) {
+            const foundIframe = host.shadowRoot.querySelector(`iframe[data-twin-unique-id="${selector}"]`);
+            if (foundIframe) {
+                return foundIframe; 
+            }
+        }
+      }
+      return null; 
+  }
+
+  static shadowHosts(){
+    return Array.from(document.body.querySelectorAll('*')).filter((el) => el.shadowRoot);
+  }
+
+  static extractPrefix(elementId) {
+      const regex = /-(\D)(?=\d)/; // Regex to match the character before the number
+      const match = elementId.match(regex);
+      
+      return match ? match[1] : null; // Return the captured group or null if no match
+  }
+
   static addOverlay() {
-    const colorArray = [
-      ['#87CEEB', '#000080'],
-      ['#F5FFFA', '#228B22'],
-      ['#FFDAB9', '#8B4513'],
-      ['#FFFACD', '#B8860B'],
-      ['#E0FFFF', '#2F4F4F'],
-      ['#FFC0CB', '#8B0000'],
-      ['#FFFFE0', '#808000'],
-      ['#F0E68C', '#556B2F'],
-      ['#E6E6FA', '#483D8B'],
-      ['#F0FFF0', '#008000']
-    ];
-    let colorIndex = 0;
-
     const allElements = HtmlProcessor.getAllElements();
+    const shadowHosts = this.shadowHosts();
 
-    for (const element of allElements) {
+    allElements.forEach((element, index) => {
       const elementId = element.getAttribute(this.idDataAttribute);
       const elementType = element.getAttribute(this.typeDataAttribute);
 
       if (!elementId || !elementType || !this.isAvailableForInteraction(element)) {
-        continue;
+        return;
       }
 
-      const colors = colorArray[colorIndex++ % colorArray.length];
       const fragment = document.createDocumentFragment();
+
+      
       const overlay = document.createElement('div');
       fragment.appendChild(overlay);
       const text = document.createElement('span');
       overlay.appendChild(text);
 
+      const color = '#000000'
       text.innerText = this.getElementLabel(elementId);
       text.style.position = 'absolute';
-      text.style.background = colors[0];
-      text.style.color = colors[1];
-      text.style.fontSize = '9px';
+      text.style.background = color;
+      text.style.color = "white";
+      text.style.padding = "2px 4px";
+      text.style.fontSize = '12px';
       text.style.fontWeight = 'bold';
-      text.style.padding = '0px';
+      text.style.borderRadius = "2px";
       text.style.whiteSpace = 'nowrap';
-      text.style.border = colors[1];
 
-      const corner = Math.floor(Math.random() * 4);
+      const corner = index % 4;
       switch (corner) {
         case 0:
           text.style.top = '0px';
@@ -282,22 +299,28 @@ class HtmlProcessor {
       }
 
       overlay.classList.add(this.twinAgentIdOverlayCls);
-      overlay.style.position = 'absolute';
+      overlay.style.position = 'fixed';
       overlay.style.textAlign = 'left';
-      overlay.style.zIndex = '100000000';
+      overlay.style.zIndex = 2147483647;
       overlay.style.overflow = 'visible';
       const rect = element.getBoundingClientRect();
-      const offset = 2;
-      overlay.style.top = `${rect.top + window.scrollY + offset / 2}px`;
-      overlay.style.left = `${rect.left + window.scrollX + offset / 2}px`;
-      overlay.style.width = `${rect.width - offset}px`;
-      overlay.style.maxWidth = `${rect.width - offset}px`;
-      overlay.style.height = `${rect.height - offset}px`;
-      overlay.style.border = `1px solid ${colors[1]}`;
+      overlay.style.top = `${rect.top}px`;
+      overlay.style.left = `${rect.left}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.maxWidth = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      overlay.style.outline= `2px dashed ${color}`;
+      overlay.style.pointerEvents = "none";
       overlay.style.boxSizing = 'border-box';
 
-      document.body.appendChild(fragment);
-    }
+      const prefix = this.extractPrefix(elementId);
+      if (prefix) {
+        const parentIframe = this.findParentIframe(shadowHosts, prefix);
+        parentIframe.contentDocument.body.appendChild(fragment);
+      } else {
+        document.body.appendChild(fragment);
+      }
+    })
   }
 
   static getOverlay() {
@@ -365,7 +388,38 @@ class HtmlProcessor {
 
   static removeOverlay() {
     document.querySelectorAll(`.${this.twinAgentIdOverlayCls}`).forEach((el) => el.remove());
-  }
+
+    const shadowHosts = this.shadowHosts(); 
+    for (const host of shadowHosts) { 
+        const overlayElements = host.shadowRoot.querySelectorAll(`.${this.twinAgentIdOverlayCls}`);
+        overlayElements.forEach((el) => el.remove()); 
+        
+        const iframesInShadow = host.shadowRoot.querySelectorAll('iframe');
+        for (const iframe of iframesInShadow) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                if (iframeDoc) {
+                    iframeDoc.querySelectorAll(`.${this.twinAgentIdOverlayCls}`).forEach((el) => el.remove());
+                }
+            } catch (error) {
+                console.warn(`Cannot access iframe content in shadow DOM due to CORS policy: ${error}`);
+            }
+        }
+    }
+
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+        try {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            if (iframeDoc) {
+                iframeDoc.querySelectorAll(`.${this.twinAgentIdOverlayCls}`).forEach((el) => el.remove());
+            }
+        } catch (error) {
+            console.warn(`Cannot access iframe content due to CORS policy: ${error}`);
+        }
+    }
 }
+}
+
 
 window.HtmlProcessor = HtmlProcessor;
