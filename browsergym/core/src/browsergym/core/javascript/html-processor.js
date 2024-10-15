@@ -192,10 +192,15 @@ class HtmlProcessor {
 
   static isAvailableForInteraction(element) {
     const style = window.getComputedStyle(element);
+    
     if (
       style.display === 'none' ||
-      style.visibility === 'hidden'
+      style.visibility === 'hidden' 
     ) {
+      return false;
+    }
+    const visibility = element.getAttribute("browsergym_visibility_ratio");
+    if (visibility && parseFloat(visibility) < 0.5) {
       return false;
     }
     return true;
@@ -205,8 +210,11 @@ class HtmlProcessor {
     if (elementId.startsWith("clickable-element-")) {
       return "ce-" + elementId.substring("clickable-element-".length);
     }
-    if (elementId.startsWith("typable-element-")) {
+    else if (elementId.startsWith("typable-element-")) {
       return "te-" + elementId.substring("typable-element-".length);
+    } 
+    else if (elementId.startsWith("selectable-element-")) {
+      return "se-" + elementId.substring("selectable-element-".length);
     }
     return elementId;
   }
@@ -240,7 +248,14 @@ class HtmlProcessor {
   }
 
   static addOverlay() {
-    const allElements = HtmlProcessor.getAllElements();
+    const allElements = HtmlProcessor.getAllElements().filter((element) => {
+      const id = element.getAttribute(this.idDataAttribute);
+      if (!id || id === "*") {
+        return false;
+      }
+      return true;
+    });
+
     const shadowHosts = this.shadowHosts();
 
     allElements.forEach((element, index) => {
