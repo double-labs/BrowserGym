@@ -102,12 +102,35 @@ class HtmlProcessor {
     return element.tagName === 'OPTION' && element.parentElement.tagName === 'SELECT';
   }
 
+  static area(element) {
+    let rect = element.getBoundingClientRect();
+    return (rect.right - rect.left) * (rect.bottom - rect.top);
+  }
+
+  static isLabelForInput(element) {
+    if (!element.tagName === 'LABEL' ) {
+      return false;
+    }
+    const forId = element.getAttribute('for');
+    if (!forId) {
+      return false;
+    }
+    const inputElement = HtmlProcessor.searchAllElementsById(document, forId);
+    if (!inputElement) {
+      return false;
+    }
+    if (inputElement && inputElement.tagName === 'INPUT') {
+      return true;
+    }
+  }
+
   static isClickable(element) {
     if (
       !element || 
       this.isNotAvailable(element) || 
       this.isOptionWithinSelect(element) || 
-      this.isSelectable(element)
+      this.isSelectable(element) ||
+      this.area(element) <= 1
     ) return false;
 
     return (
@@ -116,7 +139,8 @@ class HtmlProcessor {
       this.hasClickableEventAttribute(element) ||
       this.hasClickableRole(element) ||
       this.isClickableInput(element) ||
-      this.isFocusable(element)
+      this.isFocusable(element) || 
+      this.isLabelForInput(element)
     );
   }
 
@@ -190,13 +214,37 @@ class HtmlProcessor {
     });
   }
 
+  static searchAllElementsById(root, id) {
+    const element = root.getElementById(id);
+    if (element) {
+      return element;
+    }
+    const iframes = root.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        if (iframe.contentDocument != null) {
+          const element = this.searchAllElementsById(iframe.contentDocument, id);
+          if (element) {
+            return element;
+          }
+        }
+      } catch {
+        // Don't know when this happens but it was in other code
+      }
+    }
+    const shadowHosts = HtmlProcessor.shadowHosts();
+    for (const host of shadowHosts) {
+      const element = this.searchAllElementsById(host.shadowRoot, id);
+      if (element) {
+        return element;
+      }
+    }
+    return null;
+  }
+
   static isAvailableForInteraction(element) {
-    const style = window.getComputedStyle(element);
-    
-    if (
-      style.display === 'none' ||
-      style.visibility === 'hidden' 
-    ) {
+    const id = element.getAttribute(HtmlProcessor.idDataAttribute);
+    if (!id || id === "*") {
       return false;
     }
     const visibility = element.getAttribute("browsergym_visibility_ratio");
@@ -218,7 +266,6 @@ class HtmlProcessor {
     }
     return elementId;
   }
-
   
   static findParentIframe(shadowHosts, selector) {
       const parentIframe = document.body.querySelector(`iframe[data-twin-unique-id="${selector}"]`);
@@ -338,69 +385,6 @@ class HtmlProcessor {
     })
   }
 
-  static getOverlay() {
-    const svgNs = 'http://www.w3.org/2000/svg';
-    const interactiveTags = [
-      'a',
-      'button',
-      'input',
-      'textarea',
-      'select',
-      'details',
-      'label',
-      'option',
-      'summary',
-      'div'
-    ];
-    const svg = document.createElementNS(svgNs, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
-    svg.setAttribute('data-device-pixel-ratio', `${window.devicePixelRatio}`);
-    svg.setAttribute(
-      'data-screen',
-      JSON.stringify({
-        width: window.screen.width,
-        height: window.screen.height,
-        availWidth: window.screen.availWidth,
-        availHeight: window.screen.availHeight
-      })
-    );
-    function createOverlayElement(boundingRect, elementId, elementType) {
-      const g = document.createElementNS(svgNs, 'g');
-      const rect = document.createElementNS(svgNs, 'rect');
-      g.appendChild(rect);
-      g.setAttribute('transform', `translate(${boundingRect.left}, ${boundingRect.top})`);
-      g.setAttribute(HtmlProcessor.idDataAttribute, elementId);
-      g.setAttribute(HtmlProcessor.typeDataAttribute, elementType);
-      rect.setAttribute('width', `${boundingRect.width}`);
-      rect.setAttribute('height', `${boundingRect.height}`);
-      rect.setAttribute('fill', 'none');
-      rect.setAttribute('stroke', 'red');
-      rect.setAttribute('stroke-width', '2');
-      return { g, rect };
-    }
-    for (const tag of interactiveTags) {
-      const elements = Array.from(document.getElementsByTagName(tag));
-      for (const element of elements) {
-        const elementId = element.getAttribute(this.idDataAttribute);
-        const elementType = element.getAttribute(this.typeDataAttribute);
-        if (!elementId || !elementType || !this.isVisibleByTheUser(element)) {
-          continue;
-        }
-        const boundingRect = element.getBoundingClientRect();
-        const absBoundingRect = {
-          top: boundingRect.top + window.scrollY,
-          left: boundingRect.left + window.scrollX,
-          width: boundingRect.width,
-          height: boundingRect.height
-        };
-        const { g } = createOverlayElement(absBoundingRect, elementId, elementType);
-        svg.appendChild(g);
-      }
-    }
-    const serializer = new window.XMLSerializer();
-    return serializer.serializeToString(svg);
-  }
-
   static removeOverlay() {
     document.querySelectorAll(`.${this.twinAgentIdOverlayCls}`).forEach((el) => el.remove());
 
@@ -433,7 +417,7 @@ class HtmlProcessor {
             console.warn(`Cannot access iframe content due to CORS policy: ${error}`);
         }
     }
-}
+  }
 }
 
 
