@@ -95,7 +95,7 @@ class HtmlProcessor {
 
   static isFocusable(element) {
     const tabIndex = element.getAttribute('tabIndex');
-    return tabIndex != null && tabIndex !== '' && tabIndex != '-1';
+    return tabIndex != null && tabIndex !== '';
   }
 
   static isOptionWithinSelect(element) {
@@ -115,52 +115,13 @@ class HtmlProcessor {
     if (!forId) {
       return false;
     }
-    const element = document.getElementById(forId);
-    if (!element) {
+    const inputElement = HtmlProcessor.searchAllElementsById(document, forId);
+    if (!inputElement) {
       return false;
     }
-    const shadowHosts = this.shadowHosts(); 
-    for (const host of shadowHosts) { 
-        const element = host.shadowRoot.getElementById(forId);
-        
-        if (element) {
-          break;
-        }
-        const iframesInShadow = host.shadowRoot.querySelectorAll('iframe');
-        for (const iframe of iframesInShadow) {
-            try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                if (iframeDoc) {
-                    const element = host.shadowRoot.getElementById(forId);
-                    if (element) {
-                      break;
-                    }
-                }
-            } catch (error) {
-                console.warn(`Cannot access iframe content in shadow DOM due to CORS policy: ${error}`);
-            }
-        }
-    }
-
-    const iframes = document.querySelectorAll('iframe');
-    for (const iframe of iframes) {
-        try {
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            if (iframeDoc) {
-                const element = host.shadowRoot.getElementById(forId);
-                if (element) {
-                  break;
-                }
-            }
-        } catch (error) {
-            console.warn(`Cannot access iframe content due to CORS policy: ${error}`);
-        }
-    }
-
-    if (element) {
+    if (inputElement && inputElement.tagName === 'INPUT') {
       return true;
     }
-    return false;
   }
 
   static isClickable(element) {
@@ -253,6 +214,34 @@ class HtmlProcessor {
     });
   }
 
+  static searchAllElementsById(root, id) {
+    const element = root.getElementById(id);
+    if (element) {
+      return element;
+    }
+    const iframes = root.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        if (iframe.contentDocument != null) {
+          const element = this.searchAllElementsById(iframe.contentDocument, id);
+          if (element) {
+            return element;
+          }
+        }
+      } catch {
+        // Don't know when this happens but it was in other code
+      }
+    }
+    const shadowHosts = HtmlProcessor.shadowHosts();
+    for (const host of shadowHosts) {
+      const element = this.searchAllElementsById(host.shadowRoot, id);
+      if (element) {
+        return element;
+      }
+    }
+    return null;
+  }
+
   static isAvailableForInteraction(element) {
     const id = element.getAttribute(HtmlProcessor.idDataAttribute);
     if (!id || id === "*") {
@@ -294,8 +283,8 @@ class HtmlProcessor {
       return null; 
   }
 
-  static shadowHosts(root = document){
-    return Array.from(root.body.querySelectorAll('*')).filter((el) => el.shadowRoot);
+  static shadowHosts(){
+    return Array.from(document.body.querySelectorAll('*')).filter((el) => el.shadowRoot);
   }
 
   static extractPrefix(elementId) {
