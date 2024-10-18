@@ -19,6 +19,10 @@ class HtmlProcessor {
   static isTypable(element) {
     if (!element) return false;
 
+    if (this.area(element) <= 1) {
+      return false;
+    }
+
     const typableInputTypes = [
       'text',
       'textarea',
@@ -65,7 +69,25 @@ class HtmlProcessor {
   }
 
   static isSelectable(element) {
-    return element.tagName === 'SELECT';
+    if (element.disabled) {
+      return false;
+    }
+    if (element.tagName === 'SELECT') {
+      return true;
+    } 
+
+    if (element.tagName === 'INPUT' && element.getAttribute('list')) {
+      const datalistId = element.getAttribute('list');
+      const datalist = document.getElementById(datalistId);
+      return datalist && datalist.tagName === 'DATALIST';
+    }
+
+    if (element.tagName === 'UL') {
+      const children = element.children;
+      return Array.from(children).some(child => child.tagName === 'LI' && child.querySelector('a'));
+    }
+
+    return false;
   }
 
   static hasClickableEventListeners(element) {
