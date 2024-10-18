@@ -108,21 +108,62 @@ class HtmlProcessor {
   }
 
   static isLabelForInput(element) {
-    if (!element.tagName === 'LABEL' ) {
-      return false;
+    if (element.tagName !== 'LABEL') {
+        return false;
     }
+
     const forId = element.getAttribute('for');
     if (!forId) {
-      return false;
+        return false;
     }
-    const inputElement = HtmlProcessor.searchAllElementsById(document, forId);
-    if (!inputElement) {
-      return false;
+
+    let inputElement = document.getElementById(forId);
+    if (inputElement) {
+        return true;
     }
-    if (inputElement && inputElement.tagName === 'INPUT') {
-      return true;
+
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+        try {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            if (iframeDoc) {
+                inputElement = iframeDoc.getElementById(forId); 
+                if (inputElement) {
+                    return true; 
+                }
+            }
+        } catch (error) {
+            console.warn(`Cannot access iframe content due to CORS policy: ${error}`);
+        }
     }
+    
+    const shadowHosts = this.shadowHosts();
+    for (const host of shadowHosts) {
+        if (host.shadowRoot) {
+            inputElement = host.shadowRoot.getElementById(forId);
+            if (inputElement) {
+                return true; 
+            }
+
+            const iframesInShadow = host.shadowRoot.querySelectorAll('iframe');
+            for (const iframe of iframesInShadow) {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        inputElement = iframeDoc.getElementById(forId); 
+                        if (inputElement) {
+                            return true; 
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Cannot access iframe content in shadow DOM due to CORS policy: ${error}`);
+                }
+            }
+        }
+    }
+    return false;
   }
+
 
   static isClickable(element) {
     if (
